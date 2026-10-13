@@ -1,0 +1,71 @@
+name: Build PhotoCraft with Korean font previews
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out this build kit
+        uses: actions/checkout@v4
+        with:
+          path: helper
+
+      - name: Check out PhotoCraft v0.8.2 source
+        uses: actions/checkout@v4
+        with:
+          repository: storytold/photocraft
+          ref: v0.8.2
+          path: source
+
+      - name: Apply Korean font preview patch
+        shell: pwsh
+        run: |
+          git -C source apply "$env:GITHUB_WORKSPACE\helper\patches\photocraft_korean_font_preview.patch"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Select-String -Path 'source\crates\ui-egui\src\font_preview.rs' -Pattern 'KOREAN_SAMPLE: &str = "가나다라"' -Quiet)) {
+            throw 'Patch verification failed: Korean sample text was not found.'
+          }
+
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build files
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: source
+
+      - name: Build Windows application
+        shell: pwsh
+        working-directory: source
+        run: cargo build --locked --release -p photocraft
+
+      - name: Prepare artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path 'output' | Out-Null
+          Copy-Item 'source\target\release\photocraft.exe' 'output\photocraft.exe'
+          @'
+          PhotoCraft — Korean font preview build
+
+          Run photocraft.exe from this folder.
+          This is an unofficial personal build compiled from the public PhotoCraft v0.8.2 source
+          with a small change to font-menu previews: Korean-capable fonts show "가나다라" first;
+          other fonts retain the existing behavior.
+
+          This binary is not code-signed by the original PhotoCraft developers. Windows may show
+          a security warning for an unsigned/unrecognised application.
+          '@ | Set-Content -Encoding UTF8 'output\README.txt'
+
+      - name: Upload the built application
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoCraft-Korean-Preview-Windows
+          path: output/
+          if-no-files-found: error
+          retention-days: 7
