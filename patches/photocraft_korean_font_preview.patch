@@ -1,0 +1,25 @@
+diff --git a/crates/ui-egui/src/font_preview.rs b/crates/ui-egui/src/font_preview.rs
+--- a/crates/ui-egui/src/font_preview.rs
++++ b/crates/ui-egui/src/font_preview.rs
+@@ -17,1 +17,2 @@
+ const SAMPLE: &str = "AaBbCc";
++const KOREAN_SAMPLE: &str = "가나다라";
+@@ -123,11 +124,14 @@
+-/// The Latin sample text, and the Arabic one for a face that has both scripts. `chars` is the
+-/// face's ascending charmap. Arabic-only and symbol faces show their own glyphs instead of the
+-/// Latin sample and get no second sample.
++/// The main sample text (Korean when available, otherwise Latin), and the Arabic sample for a
++/// face that also supports Arabic. `chars` is the face's ascending charmap. Script-only and symbol
++/// faces show their own glyphs instead of a sample from a script they do not support.
+ fn sample_texts(chars: &[char]) -> (String, Option<&'static str>) {
+     let has = |c: char| chars.binary_search(&c).is_ok();
++    let arabic = ARABIC_CORE.into_iter().chain(ARABIC_SAMPLE.chars().filter(|c| !c.is_whitespace())).all(has);
++    if KOREAN_SAMPLE.chars().all(has) {
++        return (KOREAN_SAMPLE.into(), arabic.then_some(ARABIC_SAMPLE));
++    }
+     if !SAMPLE.chars().all(has) {
+         return (chars.iter().copied().filter(|c| !c.is_whitespace()).take(6).collect(), None);
+     }
+-    let arabic = ARABIC_CORE.into_iter().chain(ARABIC_SAMPLE.chars().filter(|c| !c.is_whitespace())).all(has);
+     (SAMPLE.into(), arabic.then_some(ARABIC_SAMPLE))
+ }
